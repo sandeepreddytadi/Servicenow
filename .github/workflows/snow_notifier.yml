@@ -1,0 +1,76 @@
+name: ServiceNow Ticket Notifier
+
+# ── Triggers ──────────────────────────────────────────────────────────────
+on:
+  schedule:
+    # Runs every 10 minutes, 24 / 7, even when your PC is off.
+    # GitHub's minimum supported interval is 5 minutes.
+    - cron: '*/10 * * * *'
+
+  # Allow manual trigger from GitHub → Actions → Run workflow
+  workflow_dispatch:
+
+# Prevent two runs overlapping (e.g. if a run takes longer than 10 min)
+concurrency:
+  group: snow-notifier
+  cancel-in-progress: false
+
+jobs:
+  check-tickets:
+    runs-on: ubuntu-latest
+
+    # Needed so the job can commit known_tickets.json back to the repo
+    permissions:
+      contents: write
+
+    steps:
+      # ── 1. Get the repo ──────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python setup ──────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests PyYAML
+
+      # ── 3. Run the notifier ───────────────────────────────────────────────
+      #
+      #   Set these secrets in:  GitHub repo → Settings → Secrets and variables → Actions
+      #
+      #   REQUIRED (both modes):
+      #     SNOW_URL           https://your-company.service-now.com
+      #     SNOW_USERNAME      your ServiceNow username
+      #     TEAMS_WEBHOOK_URL  Teams Incoming Webhook URL
+      #
+      #   STANDARD LOGIN (username + password, no SSO):
+      #     SNOW_PASSWORD      your ServiceNow password
+      #
+      #   SSO / Azure AD / Okta (MFA login):
+      #     SNOW_SESSION_COOKIES  JSON exported by login_helper.py
+      #     (leave SNOW_PASSWORD unset — SSO mode is auto-detected)
+      #
+      #   If SNOW_SESSION_COOKIES is set it takes priority over SNOW_PASSWORD.
+      - name: Check for new tickets and notify Teams
+        env:
+          SNOW_URL:              ${{ secrets.SNOW_URL }}
+          SNOW_USERNAME:         ${{ secrets.SNOW_USERNAME }}
+          SNOW_PASSWORD:         ${{ secrets.SNOW_PASSWORD }}
+          SNOW_SESSION_COOKIES:  ${{ secrets.SNOW_SESSION_COOKIES }}
+          TEAMS_WEBHOOK_URL:     ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: python servicenow_teams_notifier/notifier_cloud.py
+
+      # ── 4. Persist seen-ticket state ──────────────────────────────────────
+      #   Commits known_tickets.json back so the next run knows what was
+      #   already notified.  [skip ci] stops this commit re-triggering the job.
+      - name: Save ticket state to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add servicenow_teams_notifier/known_tickets.json
+          git diff --staged --quiet \
+            || git commit -m "chore: update known tickets state [skip ci]"
+          git push
