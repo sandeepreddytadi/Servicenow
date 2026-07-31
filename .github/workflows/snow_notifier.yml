@@ -61,7 +61,7 @@ jobs:
           SNOW_PASSWORD:         ${{ secrets.SNOW_PASSWORD }}
           SNOW_SESSION_COOKIES:  ${{ secrets.SNOW_SESSION_COOKIES }}
           TEAMS_WEBHOOK_URL:     ${{ secrets.TEAMS_WEBHOOK_URL }}
-        run: python servicenow_teams_notifier/notifier_cloud.py
+        run: python notifier_cloud.py
 
       # ── 4. Persist seen-ticket state ──────────────────────────────────────
       #   Commits known_tickets.json back so the next run knows what was
