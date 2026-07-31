@@ -34,8 +34,16 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Install dependencies
       - name: Install dependencies
-        run: pip install requests PyYAML
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright
+
+      # Install Playwright Chromium browser
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
 
       # ── 3. Run the notifier ───────────────────────────────────────────────
       #
