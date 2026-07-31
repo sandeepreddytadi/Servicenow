@@ -1,3 +1,4 @@
 requests>=2.31.0
 PyYAML>=6.0
+playwright>=1.54.0
 # Note: no extra deps needed — runs on GitHub Actions
